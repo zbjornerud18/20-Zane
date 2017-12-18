@@ -1,0 +1,258 @@
+<canvas id="ctx" width="500" height="500" style="border:1px solid #000000;"></canvas> 
+ 
+
+
+<script>
+var ctx = document.getElementById("ctx").getContext("2d"); //this is to set the context 
+ctx.font = '30px Arial'; //this is for size and font of text
+ 
+
+
+var HEIGHT = 500; //WIDTH and HEIGHT for canvas
+var WIDTH = 500; 
+var hasDied = false; // var to check if player has died
+var message = "Bouncing"; //test message to display in console to see if bouncing is working
+var timeWhenGameStarted = Date.now();   //return time game was started in ms
+var timeSurvived = 0;//time survived variable for seconds survived
+ 
+var frameCount = 0; //framecount variable
+var score = 0; //players score 
+
+ 
+var player = { //the player that is controlled by mouse/user
+        x:50,
+        spdX:30,
+        y:40,
+        spdY:5,
+        name:'P',
+        width:20,
+        height:20,
+        hp:10,
+        color:'blue',
+};
+ 
+var enemyList = {};//enemyList of random enemies so it can still keep track of them
+ 
+ 
+getDistanceBetweenEntity = function (entity1,entity2){  //return distance (number) between two entities
+        var vx = entity1.x - entity2.x;
+        var vy = entity1.y - entity2.y;
+        return Math.sqrt(vx*vx+vy*vy);
+}
+ 
+testCollisionEntity = function (entity1,entity2){       //return if colliding (true/false) between entities in the vars circle1 and circle2
+        var circle1 = {
+                x:entity1.x-entity1.width/2,
+                y:entity1.y-entity1.height/2,
+                width:entity1.width,
+                height:entity1.height,
+        }
+        var circle2 = {
+                x:entity2.x-entity2.width/2,
+                y:entity2.y-entity2.height/2,
+                width:entity2.width,
+                height:entity2.height,
+        }
+        return testCollisionRectRect(circle1,circle2); //returns the test collision function and it will be true or false
+       
+}
+testCollisionRectRect = function(circle1,circle2){ //tests the collision between the objects in the canvas
+        return circle1.x <= circle2.x+circle2.width
+                && circle2.x <= circle1.x+circle1.width
+                && circle1.y <= circle2.y + circle2.height
+                && circle2.y <= circle1.y + circle1.height;
+}
+ 
+Enemy = function (id,x,y,spdX,spdY,width,height){ //function for the enemies in the game
+        var enemy3 = {
+                x:x, //initial position x
+                spdX:spdX,//initial speed x
+                y:y, //initial position y
+                spdY:spdY,//initial speed y
+                name:'E',
+                id:id,
+                width:width,
+                height:height,
+                color:'red',
+        };
+        
+
+        enemyList[id] = enemy3;
+       
+}
+ 
+document.onmousemove = function(mouse){ //function that allows user to control player with the mouse
+        var mouseX = mouse.clientX - document.getElementById('ctx').getBoundingClientRect().left;
+        var mouseY = mouse.clientY - document.getElementById('ctx').getBoundingClientRect().top;
+       
+        if(mouseX < player.width/2) //this keeps the mouse in the middle of the object
+                mouseX = player.width/2;
+        if(mouseX > WIDTH-player.width/2)//this keeps the mouse in the middle of the object
+                mouseX = WIDTH - player.width/2;
+        if(mouseY < player.height/2)//this keeps the mouse in the middle of the object
+                mouseY = player.height/2;
+        if(mouseY > HEIGHT - player.height/2)//this keeps the mouse in the middle of the object
+                mouseY = HEIGHT - player.height/2;
+       
+        player.x = mouseX;
+        player.y = mouseY;
+}
+ 
+ 
+ 
+ 
+ 
+function updateEntity(something){ //big update function for creating enemies and player so it displays on canvas
+        something.x += something.spdX;
+        something.y += something.spdY;
+        if (something.name.localeCompare('player') == 0) {
+            ctx.save(); //saves text/font color
+         ctx.beginPath();
+         ctx.arc(something.x, something.y, 10, 0, 2 * Math.PI, true);
+         ctx.fillStyle = 'blue'; //fills object with this color
+         ctx.fill();   
+         ctx.restore(); //restores text/font color  
+                 } //updating stuff for the player
+                 
+        else{//if the objects name is not player it is automatically considered an enemy
+            ctx.save();//updating stuff for the enemy
+         ctx.beginPath();
+         ctx.arc(something.x, something.y, 10, 0, 2 * Math.PI, false);
+         ctx.fillStyle = 'red';
+         ctx.fill();   
+         ctx.restore();   
+        }
+        if(something.x < 0 || something.x > WIDTH){
+            
+                something.spdX = -something.spdX;
+        }
+        if(something.y < 0 || something.y > HEIGHT){
+                
+                something.spdY = -something.spdY;
+        }
+}
+updateEntityPosition = function(something){ //updates the enemy and player position on the canvas
+        something.x += something.spdX;
+        something.y += something.spdY;
+                       
+        if(something.x < 0 || something.x > WIDTH){ //this bounces the enemy of the wall in the x direction
+                something.spdX = -something.spdX;
+        }
+        if(something.y < 0 || something.y > HEIGHT){ //this bounces the enemy of the wall in the y direction
+                something.spdY = -something.spdY;
+        }
+}
+ 
+
+ 
+ 
+drawEntity = function(something){ //actually draws the enemies and player on canvas
+        ctx.save();
+        ctx.fillStyle = something.color;
+        ctx.fillRect(something.x-something.width/2,something.y-something.height/2,something.width,something.height);
+        ctx.restore();
+}
+ 
+ 
+ 
+update = function(){ //main function for updating everything in the game
+        ctx.clearRect(0,0,WIDTH,HEIGHT); //clears the canvas every second so the balls to not leave a trail of where they have been
+
+        
+       
+        if(frameCount % 100 === 0)      //every 4 sec it generates a new enemy in the game
+                randomlyGenerateEnemy();
+ 
+               
+        for(var key in enemyList){ //if the player collides with any member of the enemy list the player will lose 1 hp
+                updateEntity(enemyList[key]);
+               
+                var isColliding = testCollisionEntity(player,enemyList[key]);
+                if(isColliding){
+                        player.hp = player.hp - 1;
+                }
+        }
+        if(player.hp>0){ //if the players hp is greater than zero the game is still going to framecount++ and score++ to increase score and framecount
+            frameCount++;
+            score++;
+
+
+        }
+        else{//if the player hp is less than 0
+            if(hasDied == false){ //and if has died has not been called yet
+            
+                timeSurvived = (Date.now() - timeWhenGameStarted)/1000;//date when game ends - date when game started
+                hasDied = true;// set to true so it doesn't keep looping
+                }
+            else{ //once the player has died it prints this text on the screen with all the info like score
+
+                ctx.clearRect(0,0,WIDTH,HEIGHT);
+                ctx.fillText("YOU LOST", 175,150);
+                ctx.fillText("You survived " + timeSurvived + " seconds", 60, 200);
+                ctx.fillText("Your score was: " + score, 130, 250);
+                 
+            }
+        }
+
+             
+        drawEntity(player);//everytime it has to draw the player again
+        ctx.fillText(player.hp + " LIVES ",0,30); //displays the lives in the top left corner
+        ctx.fillText("Score: " + score,WIDTH-200,30); //displays the score in the top right corner
+}
+
+
+startNewGame = function(){ //starts the game over again
+        player.hp = 10; //resets player hp
+        timeWhenGameStarted = Date.now(); //resets time when game started
+        frameCount = 0; //resets framecount
+        score = 0;// resets score
+        enemyList = {}; //resets enemyList to empty
+        randomlyGenerateEnemy(); //and randomly generate three new enemies
+        randomlyGenerateEnemy();
+        randomlyGenerateEnemy();
+       
+}
+ 
+ 
+randomlyGenerateEnemy = function(){ //function that randomly generates
+        //Math.random() returns a number between 0 and 1
+        var x = Math.random()*WIDTH; //sets x to random place in canvas wigth
+        var y = Math.random()*HEIGHT;//sets y to random place in cavas height
+        var height = 10 + Math.random()*30;     //these don't matter because I made them circles
+        var width = 10 + Math.random()*30;
+        var id = Math.random();
+        var spdX = 5 + Math.random() * 5; //makes speedx random
+        var spdY = 5 + Math.random() * 5; //makes speedy random
+        Enemy(id,x,y,spdX,spdY,width,height);
+       
+}
+
+
+
+
+startNewGame(); //at the end of all the code start a new game 
+ 
+setInterval(update,40); //updates the interval by 40 frames per second
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ //this next part is all for the button at the bottom of the cavas. Once the user clicks the button it restarts the game.
+</script>
+</head>
+<body>
+
+<p>
+<input id="Restart Game" type="button" value="Restart Game" onclick="startNewGame();" />
+</p>
+
+ 
+</body>
+</html>
